@@ -68,14 +68,14 @@ function formatTranscribedSlidesToCut(slides, videoDuration) {
         let items = [].concat(slide.items);
         let nextSlide = slides[++index];
         let totalTime = 0;
-        while(nextSlide && nextSlide.speakerLabel === slide.speakerLabel) {
+        while (nextSlide && nextSlide.speakerLabel === slide.speakerLabel) {
             slideContent += ` ${nextSlide.content}`;
             subSlides.push(nextSlide);
             slideEndTime = nextSlide.endTime;
             items = items.concat(nextSlide.items);
             nextSlide = slides[++index];
         }
-        index --;
+        index--;
         const speakerSlideData = {
             speakerLabel: slide.speakerLabel,
             startTime: slideStartTime,
@@ -87,51 +87,18 @@ function formatTranscribedSlidesToCut(slides, videoDuration) {
         // If the slide time is greater than the threashold
         // divide it into sub slides splitted by dots
         if (slideEndTime - slideStartTime >= SLIDE_THREASHOLD) {
-            // console.log('large slide', slideStartTime, slideEndTime, slideEndTime - slideStartTime);
-            // console.log(slideContent);
-            // console.log(items);
-            // divideSpeakerSlidesByDot(speakerSlideData).forEach((slide) => speakersSlides.push(slide));
-            // console.log(`==================== large slide ====================== ${slideEndTime - slideStartTime} \n orignal slide is `)
-            // console.log(speakerSlideData);
-            // console.log('======================= new slides ============= ');
-            // console.log(divideSpeakerSlidesByDot(speakerSlideData))
-            divideSpeakerSlidesByDot(speakerSlideData).forEach((s) => speakersSlides.push(s));             
-            // speakersSlides.push(speakerSlideData);
+            divideSpeakerSlidesByDot(speakerSlideData).forEach((s) => speakersSlides.push(s));
         } else {
             speakersSlides.push(speakerSlideData);
         }
-        
+
     }
-    // console.log('sldies', slides);
-    // console.log('speaker slides', speakersSlides)
-    // console.log(slides.length ,speakersSlides.length);
-    // console.log(speakersSlides);    
-    // speakersSlides.forEach((slide) => {
-    //     finalSlides = finalSlides.concat(divideSpeakerSlides(slide));  
-    // })
-    // slides.forEach((slide, index) => {
-    //     if (index >= startIndex && index !== slides.length - 1) {
-    //         let slideContent = slide.content;
-    //         let items = [slide];
-    //         let slideStartTime = slide.startTime;
-    //         let slideEndTime = slide.endTime;
-    //         let nextSlide = slides[++startIndex];
-    //         while(nextSlide && nextSlide.speakerLabel === slide.speakerLabel) {
-    //             slideContent += ` ${nextSlide.content}`;
-    //             items.push(nextSlide);
-    //             slideEndTime = nextSlide.endTime;
-    //             nextSlide = slides[++startIndex];
-    //         }
-    //         console.log('next')
-    //         speakersSlides.push({
-    //             speakerLabel: slide.speakerLabel,
-    //             startTime: slideStartTime,
-    //             endTime: slideEndTime,
-    //             // content: slideContent,
-    //             items,
-    //         })
-    //     }
-    // })
+    finalSlides = handleSlidesSilence(speakersSlides, videoDuration);
+    return finalSlides;
+}
+
+function handleSlidesSilence(speakersSlides, videoDuration) {
+    const finalSlides = [];
     speakersSlides.forEach((slide, index) => {
         // Move the intro part to a separate slide
         if (index === 0 && slide.startTime > SILENECE_THREASHOLD) {
@@ -161,7 +128,7 @@ function formatTranscribedSlidesToCut(slides, videoDuration) {
             }
         }
         // Move the outro part to a separate slide
-        if (index === speakersSlides.length - 1 ) {
+        if (index === speakersSlides.length - 1) {
             if (slide.endTime + SILENECE_THREASHOLD < videoDuration) {
                 finalSlides.push({
                     startTime: slide.endTime,
