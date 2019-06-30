@@ -192,7 +192,7 @@ function divideSlidesIntoSubslides(slides) {
                     subSlide.endTime = nextItem.endTime;
                 }
             } else {
-                subSlides.push({ ...subSlide, content: subSlide.content.trim(), duration: subSlide.endTime - subSlide.startTime });
+                subSlides.push({ ...subSlide, content: subSlide.content.trim(), duration: (subSlide.endTime - subSlide.startTime) * 1000 });
                 subSlide = {
                     startTime: nextItem.startTime || 0,
                     endTime: nextItem.endTime || startTime,
@@ -203,7 +203,7 @@ function divideSlidesIntoSubslides(slides) {
             nextItem = slide.slideItems[++itemsIndex];
         }
         if (subSlide.startTime !== subSlide.endTime) {
-            subSlides.push({...subSlide, content: subSlide.content.trim(), duration: subSlide.endTime - subSlide.startTime });
+            subSlides.push({...subSlide, content: subSlide.content.trim(), duration: (subSlide.endTime - subSlide.startTime) * 1000 });
         }
         speakersSlides.push(subSlides)
     }
