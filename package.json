@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "stop": "pm2 stop /^TVW_EXPORTER.*$/ && pm2 delete /^TVW_EXPORTER.*$/",
+    "restart": "npm stop && npm start"
   },
   "author": "Hassan Amin",
   "license": "ISC",
@@ -11,9 +14,14 @@
     "amqplib": "^0.5.3",
     "async": "^3.1.0",
     "aws-sdk": "^2.480.0",
+    "cron": "^1.7.1",
+    "dotenv": "^8.0.0",
     "moment": "^2.24.0",
+    "mongoose": "^5.6.2",
     "uuid": "^3.3.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "pm2": "^3.5.1"
+  },
   "description": ""
 }

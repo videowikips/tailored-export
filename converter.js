@@ -31,29 +31,36 @@ function extractAudioFromVideo(videoPath, targetPath) {
     })
 }
 
+function cutSlidesIntoVideos(slides, videoPath) {
+    return new Promise((resolve, reject) => {
+        const videoCuts = [];
+        slides.forEach((slide, slideIndex) => {
+            slide.forEach((subslide, index) => {
+                videoCuts.push((cb) => {
+                    const targetPath = `tmp/${slideIndex}.${index}.${videoPath.split('.').pop()}`;
+                    // const targetPath = `tmp/${index}-${uuid()}.${videoPath.split('.').pop()}`;
+                    cutVideo(videoPath, targetPath, subslide.startTime, subslide.endTime - subslide.startTime, `${subslide.speakerLabel}: ${subslide.content ? subslide.content : 'Empty Audio'}`)
+                        .then((res) => {
+                            console.log('done', slideIndex, index); cb(null, { ...subslide, video: targetPath })
+                        })
+                        .catch(cb);
+                })
+            })
+        })
+
+        async.series(videoCuts, (err, result) => {
+            if (err) return reject(err);
+            return resolve(result);
+        })
+    })
+}
+
 function breakVideoIntoSlides(videoPath, transcription) {
     return new Promise((resolve, reject) => {
         utils.getRemoteFileDuration(videoPath)
             .then((videoDuration) => {
                 const slides = utils.formatTranscribedSlidesToCut(transcribeParser.parseTranscription(transcription), videoDuration);
-                const videoCuts = [];
-                // console.log('slides', slides)
-                slides.forEach((slide, index) => {
-                    videoCuts.push((cb) => {
-                        const targetPath = `tmp/${index}.${videoPath.split('.').pop()}`;
-                        // const targetPath = `tmp/${index}-${uuid()}.${videoPath.split('.').pop()}`;
-                        cutVideo(videoPath, targetPath, slide.startTime, slide.endTime - slide.startTime, `${slide.speakerLabel}: ${slide.content ? slide.content : 'Empty Audio'}`)
-                            .then((res) => {
-                                console.log('done', index); cb(null, { ...slide, video: targetPath })
-                            })
-                            .catch(cb);
-                    })
-                })
-
-                async.series(videoCuts, (err, result) => {
-                    if (err) return reject(err);
-                    return resolve(result);
-                })
+                return resolve(slides);
             })
             .catch(reject)
     })
@@ -61,6 +68,7 @@ function breakVideoIntoSlides(videoPath, transcription) {
 
 module.exports = {
     cutVideo,
+    cutSlidesIntoVideos,
     breakVideoIntoSlides,
     extractAudioFromVideo,
 }

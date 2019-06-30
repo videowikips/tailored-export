@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const fs = require('fs');
 // silence threashold in seconds
 const SILENECE_THREASHOLD = 1;
 // slide duration threashold in seconds
@@ -6,6 +7,22 @@ const SLIDE_THREASHOLD = 10;
 
 function findNearestDotPosition(afterTime, items) {
 
+}
+
+function downloadFile(url, targetPath) {
+    return new Promise((resolve, reject) => {
+        // https://tailoredvideowiki.s3.eu-west-1.amazonaws.com/videos/1.mp4
+        exec(`curl ${url} --output ${targetPath}`, (err, stdout, stderr) => {
+            if (err) {
+                return reject(err);
+            }
+            // ffmpeg emits warn messages on stderr, omit it and check if the file exists
+            if (!fs.existsSync(targetPath)) {
+                return reject(new Error('Failed to download file'));
+            }
+            return resolve(targetPath);
+        })
+    })
 }
 
 function divideSpeakerSlidesByDot(slide) {
@@ -55,94 +72,256 @@ function divideSpeakerSlidesByDot(slide) {
     return newSlides;
 }
 
-function formatTranscribedSlidesToCut(slides, videoDuration) {
-    let finalSlides = [];
-    const speakersSlides = [];
-    // Collect the same speaker's consicutive slides into one;
-    for (let index = 0; index < slides.length; index++) {
-        const slide = slides[index];
-        let slideContent = slide.content;
-        let subSlides = [slide];
-        let slideStartTime = slide.startTime;
-        let slideEndTime = slide.endTime;
-        let items = [].concat(slide.items);
-        let nextSlide = slides[++index];
-        let totalTime = 0;
-        while (nextSlide && nextSlide.speakerLabel === slide.speakerLabel) {
-            slideContent += ` ${nextSlide.content}`;
-            subSlides.push(nextSlide);
-            slideEndTime = nextSlide.endTime;
-            items = items.concat(nextSlide.items);
-            nextSlide = slides[++index];
-        }
-        index--;
-        const speakerSlideData = {
-            speakerLabel: slide.speakerLabel,
-            startTime: slideStartTime,
-            endTime: slideEndTime,
-            content: slideContent,
-            // subSlides,
-            items,
-        };
-        // If the slide time is greater than the threashold
-        // divide it into sub slides splitted by dots
-        if (slideEndTime - slideStartTime >= SLIDE_THREASHOLD) {
-            divideSpeakerSlidesByDot(speakerSlideData).forEach((s) => speakersSlides.push(s));
-        } else {
-            speakersSlides.push(speakerSlideData);
-        }
-
-    }
-    finalSlides = handleSlidesSilence(speakersSlides, videoDuration);
-    return finalSlides;
-}
-
 function handleSlidesSilence(speakersSlides, videoDuration) {
-    const finalSlides = [];
-    speakersSlides.forEach((slide, index) => {
-        // Move the intro part to a separate slide
-        if (index === 0 && slide.startTime > SILENECE_THREASHOLD) {
-            finalSlides.push({ startTime: 0, endTime: slide.startTime, content: '' });
-        }
-        finalSlides.push(slide);
-        // Check for silence in between and cut to separate sldies
-        if (index !== 0 && index !== speakersSlides.length - 1) {
-            const nextSlide = speakersSlides[index + 1];
-            console.log(slide.endTime, nextSlide.startTime)
-            // Check for silent parts
-            if ((nextSlide.startTime) > (slide.endTime + SILENECE_THREASHOLD)) {
-                // If the silent part is smaller than the slide threashold, append it to the previous slide
-                // Otherwise, create it as a new slide
-                const silenceTime = nextSlide.startTime - slide.endTime;
-                if (silenceTime > SLIDE_THREASHOLD) {
-                    finalSlides.push({
-                        startTime: slide.endTime,
-                        endTime: nextSlide.startTime,
+    const finalSlides = [...speakersSlides];
+    speakersSlides.forEach((subslides, subslideIndex) => {
+        subslides.forEach((slide, slideIndex) => {
+            if (slideIndex === 0 && subslideIndex !== 0) {
+                if (speakersSlides[subslideIndex -1][speakersSlides[subslideIndex -1].length - 1].endTime - slide.startTime > SLIDE_THREASHOLD) {
+                    speakersSlides[subslideIndex -1].push({
+                        startTime: speakersSlides[subslideIndex -1][speakersSlides[subslideIndex -1].length - 1].endTime,
+                        endTime: slide.startTime,
                         content: '',
                     })
                 } else {
-                    slide.endTime = nextSlide.startTime;
+                    speakersSlides[subslideIndex -1][speakersSlides[subslideIndex -1].length - 1].endTime = slide.startTime;
                 }
-            } else if (nextSlide.startTime > slide.endTime) {
-                slide.endTime = nextSlide.startTime;
             }
-        }
-        // Move the outro part to a separate slide
-        if (index === speakersSlides.length - 1) {
-            if (slide.endTime + SILENECE_THREASHOLD < videoDuration) {
-                finalSlides.push({
-                    startTime: slide.endTime,
-                    endTime: videoDuration,
-                    content: '',
-                })
-            } else {
-                // If outro is not large, just append it to the last slide
-                finalSlides[finalSlides.length - 1].endTime = videoDuration;
+            if (slideIndex !== 0) {
+                subslides[slideIndex - 1].endTime = slide.startTime;
             }
-        }
+        })
     })
+    const lastSlide = speakersSlides[speakersSlides.length - 1];
+    // if (lastItem[lastItem.length - 1].endTime !== videoDuration) {
+    // }
+    lastSlide[lastSlide.length - 1].endTime = videoDuration
     return finalSlides;
 }
+
+// function handleSlidesSilence(speakersSlides, videoDuration) {
+//     const finalSlides = [];
+//     speakersSlides.forEach((slide, index) => {
+//         // Move the intro part to a separate slide
+//         if (index === 0 && slide.startTime > SILENECE_THREASHOLD) {
+//             finalSlides.push({ startTime: 0, endTime: slide.startTime, content: '' });
+//         }
+//         finalSlides.push(slide);
+//         // Check for silence in between and cut to separate sldies
+//         if (index !== 0 && index !== speakersSlides.length - 1) {
+//             const nextSlide = speakersSlides[index + 1];
+//             // Check for silent parts
+//             if ((nextSlide.startTime) > (slide.endTime + SILENECE_THREASHOLD)) {
+//                 // If the silent part is smaller than the slide threashold, append it to the previous slide
+//                 // Otherwise, create it as a new slide
+//                 const silenceTime = nextSlide.startTime - slide.endTime;
+//                 if (silenceTime > SLIDE_THREASHOLD) {
+//                     finalSlides.push({
+//                         startTime: slide.endTime,
+//                         endTime: nextSlide.startTime,
+//                         content: '',
+//                     })
+//                 } else {
+//                     slide.endTime = nextSlide.startTime;
+//                 }
+//             } else if (nextSlide.startTime > slide.endTime) {
+//                 slide.endTime = nextSlide.startTime;
+//             }
+//         }
+//         // Move the outro part to a separate slide
+//         if (index === speakersSlides.length - 1) {
+//             if (slide.endTime + SILENECE_THREASHOLD < videoDuration) {
+//                 finalSlides.push({
+//                     startTime: slide.endTime,
+//                     endTime: videoDuration,
+//                     content: '',
+//                 })
+//             } else {
+//                 // If outro is not large, just append it to the last slide
+//                 finalSlides[finalSlides.length - 1].endTime = videoDuration;
+//             }
+//         }
+//     })
+//     return finalSlides;
+// }
+
+function getItemContent(item) {
+    if (item.type === 'pronunciation') {
+        return ` ${item.alternatives[0].content}`
+    } else {
+        return `${item.alternatives[0].content}`
+    }
+}
+
+function getNearestStarTime(items) {
+    return items.find((i) => i.startTime).startTime;
+}
+
+function getLatestEndTime(items) {
+    return items.reverse().find(i => i.endTime).endTime;
+}
+
+function divideSlidesIntoSubslides(slides) {
+    const speakersSlides = [];
+    // for each slide, we divide it into subslides based on the speaker label
+    for (let index = 0; index < slides.length; index++) {
+        const slide = slides[index];
+        if (!slide.slideItems) {
+            speakersSlides.push(slide);
+            continue;
+        }
+        const subSlides = [];
+        let itemsIndex = 0;
+        let subSlide = {
+            startTime: getNearestStarTime(slide.slideItems),
+            content: getItemContent(slide.slideItems[itemsIndex]),
+            speakerLabel: slide.slideItems[itemsIndex].speakerLabel,
+        }
+        // Go through all the items and divide collect them as subslides
+        // based on the speaker label
+        let nextItem = slide.slideItems[++itemsIndex];
+        while( nextItem ) {
+            if (nextItem.speakerLabel === subSlide.speakerLabel) {
+                subSlide.content += getItemContent(nextItem);
+
+                if (!subSlide.startTime && nextItem.startTime) {
+                    subSlide.startTime = nextItem.startTime;
+                }
+                
+                if (nextItem.endTime) {
+                    subSlide.endTime = nextItem.endTime;
+                }
+            } else {
+                subSlides.push({ ...subSlide, content: subSlide.content.trim(), duration: subSlide.endTime - subSlide.startTime });
+                subSlide = {
+                    startTime: nextItem.startTime || 0,
+                    endTime: nextItem.endTime || startTime,
+                    content: getItemContent(nextItem),
+                    speakerLabel: nextItem.speakerLabel,
+                }
+            }
+            nextItem = slide.slideItems[++itemsIndex];
+        }
+        if (subSlide.startTime !== subSlide.endTime) {
+            subSlides.push({...subSlide, content: subSlide.content.trim(), duration: subSlide.endTime - subSlide.startTime });
+        }
+        speakersSlides.push(subSlides)
+    }
+    return speakersSlides;
+}
+
+function formatTranscribedSlidesToCut(slides, videoDuration = 629.88) {
+    let finalSlides = [];
+    const speakersSlides = [];
+    const items = slides
+        .reduce((acc, slide) => acc.concat(slide.items.map(item => ({ ...item, speakerLabel: slide.speakerLabel, startTime: parseFloat(item.start_time), endTime: parseFloat(item.end_time) }))), []);
+
+    for (let index = 0; index < items.length; index++) {
+        let item = items[index];
+        let startTime = item.startTime || 0;
+        let endTime = item.endTime || startTime;
+        let slideContent = getItemContent(item);
+        let nextItem = items[++index];
+        let slideItems = [item];
+        let prevItem = item;
+        while (nextItem && !((endTime - startTime >= SLIDE_THREASHOLD && getItemContent(prevItem).trim() === '.'))) {
+            prevItem = nextItem;
+            if (nextItem.endTime) {
+                endTime = nextItem.endTime;
+            }
+            slideContent += getItemContent(nextItem);
+            slideItems.push(nextItem);
+            nextItem = items[++index];
+        }
+        // speakersSlides.push({ slideItems, slideContent, startTime, endTime: slideItems.reduce((acc, item) => item.endTime && item.startTime ? acc + (item.endTime - item.startTime) : acc, startTime) })
+        speakersSlides.push({ slideItems, content: slideContent, startTime, endTime: slideItems.reduce((acc, item) => item.endTime && item.startTime ? item.endTime : acc, startTime) })
+        index--;
+    }
+    finalSlides = handleSlidesSilence(divideSlidesIntoSubslides(speakersSlides), videoDuration);
+    return finalSlides;
+}
+
+function getSpeakerNumberFromLabel(speakerLabel) {
+    return parseInt(speakerLabel.replace('spk_', ''))
+}
+
+function formatSlidesToSlideSpeakerSchema(slides) {
+    const formattedSlides = [];
+    slides.forEach((subslides, subslidesIndex) => {
+        subslides.forEach((slide) => {
+            slide.text = slide.content;
+            delete slide.content;
+            slide.audio = '';
+            slide.medias = [];
+            if (slide.speakerLabel) {
+                slide.speakerProfile = {
+                    speakerNumber: getSpeakerNumberFromLabel(slide.speakerLabel),
+                    speakerGender: 'male',
+                }
+            }
+        })
+        formattedSlides.push({
+            content: subslides,
+            position: subslidesIndex,
+            convertStatus: 'done',
+        })
+    })
+    return formattedSlides;
+}
+
+function getSpeakersFromSlides(slides) {
+    const speakers = [];
+    slides.forEach((slide) => {
+        slide.content.forEach((subslide) => {
+            if (speakers.map(s => s.speakerNumber).indexOf(subslide.speakerProfile.speakerNumber) === -1) {
+                speakers.push(subslide.speakerProfile);
+            }
+        })
+    })
+    return speakers;
+}
+
+// function formatTranscribedSlidesToCut(slides, videoDuration) {
+//     let finalSlides = [];
+//     const speakersSlides = [];
+//     // Collect the same speaker's consicutive slides into one;
+//     for (let index = 0; index < slides.length; index++) {
+//         const slide = slides[index];
+//         let slideContent = slide.content;
+//         let subSlides = [slide];
+//         let slideStartTime = slide.startTime;
+//         let slideEndTime = slide.endTime;
+//         let items = [].concat(slide.items);
+//         let nextSlide = slides[++index];
+//         let totalTime = 0;
+//         while (nextSlide && nextSlide.speakerLabel === slide.speakerLabel) {
+//             slideContent += ` ${nextSlide.content}`;
+//             subSlides.push(nextSlide);
+//             slideEndTime = nextSlide.endTime;
+//             items = items.concat(nextSlide.items);
+//             nextSlide = slides[++index];
+//         }
+//         index--;
+//         const speakerSlideData = {
+//             speakerLabel: slide.speakerLabel,
+//             startTime: slideStartTime,
+//             endTime: slideEndTime,
+//             content: slideContent,
+//             // subSlides,
+//             items,
+//         };
+//         // If the slide time is greater than the threashold
+//         // divide it into sub slides splitted by dots
+//         if (slideEndTime - slideStartTime >= SLIDE_THREASHOLD) {
+//             divideSpeakerSlidesByDot(speakerSlideData).forEach((s) => speakersSlides.push(s));
+//         } else {
+//             speakersSlides.push(speakerSlideData);
+//         }
+
+//     }
+//     finalSlides = handleSlidesSilence(speakersSlides, videoDuration);
+//     return finalSlides;
+// }
 
 function getRemoteFileDuration(url) {
     return new Promise((resolve, reject) => {
@@ -178,8 +357,16 @@ function formatCutTime(seconds) {
     return time.substr(0, 12);
 }
 
+function getFileExtension(url) {
+    return url.split('.').pop().toLowerCase();
+}
+
 module.exports = {
     formatCutTime,
     getRemoteFileDuration,
     formatTranscribedSlidesToCut,
+    downloadFile,
+    getFileExtension,
+    getSpeakersFromSlides,
+    formatSlidesToSlideSpeakerSchema,
 }
