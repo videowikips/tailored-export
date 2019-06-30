@@ -23,7 +23,7 @@ const SlideSpeakerSchema = new Schema({
     audio: { type: String },
     duration: { type: Number },
     speakerProfile: SpeakerProfileSchema,
-    medias: [MediaSchema],
+    media: [MediaSchema],
 })
 
 const SlideSchema = new Schema({

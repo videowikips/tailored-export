@@ -252,7 +252,7 @@ function formatSlidesToSlideSpeakerSchema(slides) {
             slide.text = slide.content;
             delete slide.content;
             slide.audio = '';
-            slide.medias = [];
+            slide.media = [];
             if (slide.speakerLabel) {
                 slide.speakerProfile = {
                     speakerNumber: getSpeakerNumberFromLabel(slide.speakerLabel),
