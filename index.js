@@ -20,6 +20,6 @@ exec(`node_modules/pm2/bin/pm2 start cronJobs.js --name=TVW_EXPORTER_CRONJOBS`, 
     if (err) {
         console.log('error intializing', err);
     } else {
-        console.log('started exporter worker')
+        console.log('started exporter cronjobs')
     }
 })

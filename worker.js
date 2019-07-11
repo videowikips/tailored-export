@@ -32,7 +32,7 @@ rabbitmqService.createChannel(RABBITMQ_SERVER, (err, ch) => {
     channel.consume(TRANSCRIBE_VIDEO_QUEUE, onTranscribeVideo)
     channel.consume(TRANSCRIBE_FINISH_QUEUE, onTranscribeFinish)
     setTimeout(() => {
-        // channel.sendToQueue(TRANSCRIBE_FINISH_QUEUE, new Buffer(JSON.stringify({ videoId: "5d16b772a4be9f57f35e38e9" })));
+        // channel.sendToQueue(TRANSCRIBE_FINISH_QUEUE, new Buffer(JSON.stringify({ videoId: "5d1d9b007e2a29705e0f2f11" })));
     }, 2000);
 })
 
@@ -135,7 +135,7 @@ function onTranscribeFinish(msg) {
     })
     .then(article => {
         console.log('article created');
-        return videoHandler.updateById(videoId, { status: 'proofreading' });
+        return videoHandler.updateById(videoId, { status: 'proofreading', article: article._id });
     })
     .then(() => {
         console.log('done');

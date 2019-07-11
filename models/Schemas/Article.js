@@ -24,6 +24,8 @@ const SlideSpeakerSchema = new Schema({
     duration: { type: Number },
     speakerProfile: SpeakerProfileSchema,
     media: [MediaSchema],
+    startTime: { type: Number },
+    endTime: { type: Number },
 })
 
 const SlideSchema = new Schema({

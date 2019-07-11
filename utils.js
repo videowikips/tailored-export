@@ -237,7 +237,7 @@ function formatTranscribedSlidesToCut(slides, videoDuration = 629.88) {
         speakersSlides.push({ slideItems, content: slideContent, startTime, endTime: slideItems.reduce((acc, item) => item.endTime && item.startTime ? item.endTime : acc, startTime) })
         index--;
     }
-    finalSlides = handleSlidesSilence(divideSlidesIntoSubslides(speakersSlides), videoDuration);
+    finalSlides = divideSlidesIntoSubslides(speakersSlides);
     return finalSlides;
 }
 
