@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
-    "stop": "pm2 stop /^TVW_EXPORTER.*$/ && pm2 delete /^TVW_EXPORTER.*$/",
+    "run:dev": "node index.js",
+    "start": "pm2 start worker.js --name=tvw_exporter -i 2",
+    "stop": "pm2 stop tvw_exporter && pm2 delete tvw_exporter",
     "restart": "npm stop && npm start"
   },
   "author": "Hassan Amin",
