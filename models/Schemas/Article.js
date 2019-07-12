@@ -21,9 +21,10 @@ const SpeakerProfileSchema = new Schema({
 const SlideSpeakerSchema = new Schema({
     text: { type: String },
     audio: { type: String },
-    duration: { type: Number },
     speakerProfile: SpeakerProfileSchema,
     media: [MediaSchema],
+    silent: { type: Boolean, default: false },
+
     startTime: { type: Number },
     endTime: { type: Number },
 })

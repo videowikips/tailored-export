@@ -3,6 +3,8 @@ require('dotenv').config({ path: '.env' });
 const uuid = require('uuid').v4;
 const fs = require('fs');
 const mongoose = require('mongoose');
+const async = require('async');
+
 const converter = require('./converter');
 const utils = require('./utils');
 
@@ -29,8 +31,10 @@ rabbitmqService.createChannel(RABBITMQ_SERVER, (err, ch) => {
     channel.prefetch(1)
     channel.assertQueue(TRANSCRIBE_VIDEO_QUEUE, { durable: true });
     channel.assertQueue(TRANSCRIBE_FINISH_QUEUE, { durable: true });
+    channel.assertQueue(CONVERT_VIDEO_TO_ARTICLE_QUEUE, { durable: true });
     channel.consume(TRANSCRIBE_VIDEO_QUEUE, onTranscribeVideo)
     channel.consume(TRANSCRIBE_FINISH_QUEUE, onTranscribeFinish)
+    channel.consume(CONVERT_VIDEO_TO_ARTICLE_QUEUE, onConvertVideoToArticle)
     setTimeout(() => {
         // channel.sendToQueue(TRANSCRIBE_FINISH_QUEUE, new Buffer(JSON.stringify({ videoId: "5d1d9b007e2a29705e0f2f11" })));
     }, 2000);
@@ -47,43 +51,43 @@ function onTranscribeVideo(msg) {
     let video;
     let audioUrl;
     videoHandler.findById(videoId)
-    .then((v) => {
-        video = v;
-        console.log('video is', video);
-        const videoPath = `tmp/${uuid()}.${utils.getFileExtension(video.url)}`;
-        return utils.downloadFile(video.url, videoPath);
-    })
-    .then(videoPath => {
-        tmpFiles.push(videoPath);
-        const audioPath = `tmp/${uuid()}.mp3`;
-        return converter.extractAudioFromVideo(videoPath, audioPath);
-    })
-    .then((audioPath) => {
-        console.log('extracted audio');
-        tmpFiles.push(audioPath);
-        return storageService.saveFile(AUDIO_DIRECTORY_NAME, `${uuid()}.mp3`, fs.createReadStream(audioPath));
-    })
-    .then((res) => {
-        console.log('saved audio file');
-        audioUrl = res.url;
-        return transcribeService.transcribe(res.url, video.langCode, video.numberOfSpeakers)
-    })
-    .then((res) => {
-        console.log('transcribe started', res);
-        return videoHandler.updateById(videoId, { jobName: res.jobName, status: 'transcriping', audioUrl });
-    })
-    .then((res) => {
-        console.log('job started', res);
-        channel.ack(msg);
-        // Cleanup
-        cleanupFiles(tmpFiles);
-    })
-    .catch(err => {
-        cleanupFiles(tmpFiles);
-        channel.ack(msg)
-        console.log(err);
-        return videoHandler.updateById(videoId, { status: 'failed' });
-    })
+        .then((v) => {
+            video = v;
+            console.log('video is', video);
+            const videoPath = `tmp/${uuid()}.${utils.getFileExtension(video.url)}`;
+            return utils.downloadFile(video.url, videoPath);
+        })
+        .then(videoPath => {
+            tmpFiles.push(videoPath);
+            const audioPath = `tmp/${uuid()}.mp3`;
+            return converter.extractAudioFromVideo(videoPath, audioPath);
+        })
+        .then((audioPath) => {
+            console.log('extracted audio');
+            tmpFiles.push(audioPath);
+            return storageService.saveFile(AUDIO_DIRECTORY_NAME, `${uuid()}.mp3`, fs.createReadStream(audioPath));
+        })
+        .then((res) => {
+            console.log('saved audio file');
+            audioUrl = res.url;
+            return transcribeService.transcribe(res.url, video.langCode, video.numberOfSpeakers)
+        })
+        .then((res) => {
+            console.log('transcribe started', res);
+            return videoHandler.updateById(videoId, { jobName: res.jobName, status: 'transcriping', audioUrl });
+        })
+        .then((res) => {
+            console.log('job started', res);
+            channel.ack(msg);
+            // Cleanup
+            cleanupFiles(tmpFiles);
+        })
+        .catch(err => {
+            cleanupFiles(tmpFiles);
+            channel.ack(msg)
+            console.log(err);
+            return videoHandler.updateById(videoId, { status: 'failed' });
+        })
 }
 
 function onTranscribeFinish(msg) {
@@ -99,58 +103,145 @@ function onTranscribeFinish(msg) {
     let transcriptionPath;
     let videoPath;
     videoHandler.findById(videoId)
-    .then((v) => {
-        video = v;
-        if (!video) throw new Error('Invalid video id');
-        console.log(video)
-        transcriptionPath = `./tmp/${uuid()}.${utils.getFileExtension(video.transcriptionUrl)}`;
-        videoPath = `./tmp/${uuid()}.${utils.getFileExtension(video.url)}`;
-        console.log('downloading trans');
-        return utils.downloadFile(video.transcriptionUrl, transcriptionPath)
-    })
-    .then((transcriptionPath) => {
-        tmpFiles.push(transcriptionPath);
-        console.log('download video')
-        return utils.downloadFile(video.url, videoPath);
-    })
-    .then(videoPath => {
-        tmpFiles.push(videoPath);
-        return converter.breakVideoIntoSlides(videoPath, require(transcriptionPath));
-    })
-    .then(slides => {
-        // Format slides to match article schema
-        const formattedSlides = utils.formatSlidesToSlideSpeakerSchema(slides);
-        const newArticle = {
-            title: video.title,
-            version: 1,
-            slides: formattedSlides,
-            video: video._id,
-            numberOfSpeakers: video.numberOfSpeakers,
-            langCode: video.langCode,
-            speakersProfile: utils.getSpeakersFromSlides(formattedSlides),
-            organization: video.organization,
-        }
-        return articleHandler.create(newArticle)
+        .then((v) => {
+            video = v;
+            if (!video) throw new Error('Invalid video id');
+            console.log(video)
+            transcriptionPath = `./tmp/${uuid()}.${utils.getFileExtension(video.transcriptionUrl)}`;
+            videoPath = `./tmp/${uuid()}.${utils.getFileExtension(video.url)}`;
+            console.log('downloading trans');
+            return utils.downloadFile(video.transcriptionUrl, transcriptionPath)
+        })
+        .then((transcriptionPath) => {
+            tmpFiles.push(transcriptionPath);
+            console.log('download video')
+            return utils.downloadFile(video.url, videoPath);
+        })
+        .then(videoPath => {
+            tmpFiles.push(videoPath);
+            return converter.breakVideoIntoSlides(videoPath, require(transcriptionPath));
+        })
+        .then(slides => {
+            // Format slides to match article schema
+            const formattedSlides = utils.formatSlidesToSlideSpeakerSchema(slides);
+            const newArticle = {
+                title: video.title,
+                version: 1,
+                slides: formattedSlides,
+                video: video._id,
+                numberOfSpeakers: video.numberOfSpeakers,
+                langCode: video.langCode,
+                speakersProfile: utils.getSpeakersFromSlides(formattedSlides),
+                organization: video.organization,
+            }
+            return articleHandler.create(newArticle)
 
-    })
-    .then(article => {
-        console.log('article created');
-        return videoHandler.updateById(videoId, { status: 'proofreading', article: article._id });
-    })
-    .then(() => {
-        console.log('done');
-        channel.ack(msg);
-    })
-    .catch(err => {
-        console.log(err);
-        cleanupFiles(tmpFiles);
-        channel.ack(msg);
-        return videoHandler.updateById(videoId, { status: 'failed' });
-    })
+        })
+        .then(article => {
+            console.log('article created');
+            return videoHandler.updateById(videoId, { status: 'proofreading', article: article._id });
+        })
+        .then(() => {
+            return utils.getRemoteFileDuration(videoPath);
+        })
+        .then(duration => {
+            return videoHandler.updateById(videoId, { duration });
+        })
+        .then(() => {
+            console.log('done');
+            channel.ack(msg);
+        })
+        .catch(err => {
+            console.log(err);
+            cleanupFiles(tmpFiles);
+            channel.ack(msg);
+            return videoHandler.updateById(videoId, { status: 'failed' });
+        })
+}
+
+function onConvertVideoToArticle(msg) {
+    const { videoId } = JSON.parse(msg.content.toString());
+    let tmpFiles = [];
+    let video;
+    let article;
+    let videoPath;
+    // download original video
+    // cut it using the timing provided by the user
+    // cut silent parts and add them as slides
+    // uploaded cutted parts
+    // cleanup
+
+    videoHandler.findById(videoId)
+        .then(v => {
+            if (!v) throw new Error('Invalid video id');
+            console.log('converting to article', v)
+            video = v;
+            videoPath = `./tmp/${uuid()}.${utils.getFileExtension(video.url)}`;
+            return articleHandler.find({ video: video._id, version: 1 })
+        })
+        .then((a) => {
+            if (!a || a.length === 0) throw new Error('Invalid article');
+            article = a[0].toObject();
+            return utils.downloadFile(video.url, videoPath);
+        })
+        .then((videoPath) => {
+            tmpFiles.push(videoPath);
+            return converter.cutSlidesIntoVideos(article.slides.slice(), videoPath)
+        })
+        .then((slides) => {
+            console.log(slides, 'before upload')
+            return new Promise((resolve, reject) => {
+                console.log('after cut')
+                slides.forEach(v => tmpFiles.push(v.video));
+                const uploadFuncArray = [];
+                slides.forEach((video) => {
+                    uploadFuncArray.push((cb) => {
+                        const videoName = video.video.split('/').pop();
+                        storageService.saveFile('slides', videoName, fs.createReadStream(video.video))
+                        .then((res) => {
+                            video.url = res.url;
+                            console.log('uploaded', videoName, res.url);
+                            cb();
+                        })
+                        .catch((err) => {
+                            cb(err);
+                        });
+                    })
+                })
+                console.log('uploadfunc', uploadFuncArray.length, slides)
+                async.parallelLimit(uploadFuncArray, 2, (err, result) => {
+                    console.log('done uploading')
+                    if (err) return reject(err);
+                    return resolve(slides);
+                })
+            })
+        })
+        .then((videoSlides) => {
+            console.log('updating slides with video')
+            const modifiedSlides = article.slides.slice();
+            videoSlides.forEach((videoSlide) => {
+                modifiedSlides[videoSlide.slideIndex].content[videoSlide.subslideIndex].media = [{ url: videoSlide.url, mediaType: 'video', duration: videoSlide.endTime - videoSlide.startTime }];
+            })
+            return articleHandler.updateById(article._id, { slides: modifiedSlides });
+        })
+        .then(() => {
+            return videoHandler.updateById(videoId, { status: 'done' });
+        })
+        .then(() => {
+            console.log('done');
+            cleanupFiles(tmpFiles);
+            channel.ack(msg);
+        })
+        .catch(err => {
+            console.log(err);
+            cleanupFiles(tmpFiles);
+            channel.ack(msg);
+            return videoHandler.updateById(videoId, { status: 'failed' });
+        })
 }
 
 function cleanupFiles(files) {
     files.forEach((file) => {
-        fs.unlink(file, () => {});
+        fs.unlink(file, () => { });
     })
 }

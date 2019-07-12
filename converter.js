@@ -35,13 +35,13 @@ function cutSlidesIntoVideos(slides, videoPath) {
     return new Promise((resolve, reject) => {
         const videoCuts = [];
         slides.forEach((slide, slideIndex) => {
-            slide.forEach((subslide, index) => {
+            slide.content.forEach((subslide, index) => {
                 videoCuts.push((cb) => {
-                    const targetPath = `tmp/${slideIndex}.${index}.${videoPath.split('.').pop()}`;
+                    const targetPath = `tmp/${slideIndex}.${index}${uuid()}.${videoPath.split('.').pop()}`;
                     // const targetPath = `tmp/${index}-${uuid()}.${videoPath.split('.').pop()}`;
                     cutVideo(videoPath, targetPath, subslide.startTime, subslide.endTime - subslide.startTime, `${subslide.speakerLabel}: ${subslide.content ? subslide.content : 'Empty Audio'}`)
                         .then((res) => {
-                            console.log('done', slideIndex, index); cb(null, { ...subslide, video: targetPath })
+                            console.log('done', slideIndex, index); cb(null, { ...subslide, video: targetPath, slideIndex, subslideIndex: index })
                         })
                         .catch(cb);
                 })

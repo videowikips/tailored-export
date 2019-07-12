@@ -11,7 +11,9 @@ const VideoSchema = new Schema({
     numberOfSpeakers: { type: Number },
     organization: { type: Schema.Types.ObjectId, ref: SchemaNames.organization },
     article: { type: Schema.Types.ObjectId, ref: SchemaNames.article },
-    
+    Key: { type: String },
+    duration: Number,
+
     audioUrl: { type: String },
     transcriptionUrl: { type: String },
     jobName: { type: String }, // AWS Transcribe job name
