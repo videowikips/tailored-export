@@ -11,11 +11,35 @@ function normalizeCommandText(text) {
 
 function cutVideo(videoPath, targetPath, start, end, content) {
     return new Promise((resolve, reject) => {
-        const command = `ffmpeg -y -ss ${utils.formatCutTime(start)} -filter_complex "[0:v]drawtext=fontsize=15:fontcolor=white:fontfile=FreeSerif.ttf:text='${normalizeCommandText(content)}':x=20:y=20" -i ${videoPath} -t ${end} ${targetPath}`;
+        const command = `ffmpeg -y -ss ${utils.formatCutTime(start)} -i ${videoPath} -t ${end} ${targetPath}`;
         exec(command, (err, stdout, stderr) => {
             if (err) return reject(err);
             if (!fs.existsSync(targetPath)) return reject(new Error('Something went wrong'));
             return resolve(targetPath);
+        })
+    })
+}
+
+function extractAudioFromSlidesVideos(slides) {
+
+    return new Promise((resolve, reject) => {
+        const extractAudioFuncArray = [];
+        slides.forEach(videoSlide => {
+            extractAudioFuncArray.push((cb) => {
+                const targetPath = `tmp/audio-${uuid()}.mp3`;
+                extractAudioFromVideo(videoSlide.video, targetPath)
+                .then(() => {
+                    videoSlide.audio = targetPath;
+                    cb();
+                })
+                .catch((err) => {
+                    cb(err);
+                })
+            })
+        });
+        async.parallelLimit(extractAudioFuncArray, 2, (err) => {
+            if (err) return reject(err);
+            return resolve(slides);
         })
     })
 }
@@ -39,7 +63,7 @@ function cutSlidesIntoVideos(slides, videoPath) {
                 videoCuts.push((cb) => {
                     const targetPath = `tmp/${slideIndex}.${index}${uuid()}.${videoPath.split('.').pop()}`;
                     // const targetPath = `tmp/${index}-${uuid()}.${videoPath.split('.').pop()}`;
-                    cutVideo(videoPath, targetPath, subslide.startTime, subslide.endTime - subslide.startTime, `${subslide.speakerLabel}: ${subslide.content ? subslide.content : 'Empty Audio'}`)
+                    cutVideo(videoPath, targetPath, subslide.startTime, subslide.endTime - subslide.startTime)
                         .then((res) => {
                             console.log('done', slideIndex, index); cb(null, { ...subslide, video: targetPath, slideIndex, subslideIndex: index })
                         })
@@ -70,5 +94,6 @@ module.exports = {
     cutVideo,
     cutSlidesIntoVideos,
     breakVideoIntoSlides,
+    extractAudioFromSlidesVideos,
     extractAudioFromVideo,
 }

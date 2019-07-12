@@ -188,27 +188,35 @@ function onConvertVideoToArticle(msg) {
             tmpFiles.push(videoPath);
             return converter.cutSlidesIntoVideos(article.slides.slice(), videoPath)
         })
+        .then(slides => {
+            return converter.extractAudioFromSlidesVideos(slides);
+        })
         .then((slides) => {
-            console.log(slides, 'before upload')
             return new Promise((resolve, reject) => {
+                slides.forEach(v => tmpFiles.push(v.video) && tmpFiles.push(v.audio));
                 console.log('after cut')
-                slides.forEach(v => tmpFiles.push(v.video));
                 const uploadFuncArray = [];
                 slides.forEach((video) => {
                     uploadFuncArray.push((cb) => {
                         const videoName = video.video.split('/').pop();
+                        const audioName = video.audio.split('/').pop();
                         storageService.saveFile('slides', videoName, fs.createReadStream(video.video))
                         .then((res) => {
                             video.url = res.url;
-                            console.log('uploaded', videoName, res.url);
-                            cb();
+                            console.log('uploaded video', videoName);
+                            storageService.saveFile('slides', audioName, fs.createReadStream(video.audio))
+                            .then((res) => {
+                                video.audio = res.url;
+                                console.log('uploaded audio', audioName);
+                                cb();
+                            })
+                            .catch((err) => cb(err));
                         })
                         .catch((err) => {
                             cb(err);
                         });
                     })
                 })
-                console.log('uploadfunc', uploadFuncArray.length, slides)
                 async.parallelLimit(uploadFuncArray, 2, (err, result) => {
                     console.log('done uploading')
                     if (err) return reject(err);
@@ -221,6 +229,7 @@ function onConvertVideoToArticle(msg) {
             const modifiedSlides = article.slides.slice();
             videoSlides.forEach((videoSlide) => {
                 modifiedSlides[videoSlide.slideIndex].content[videoSlide.subslideIndex].media = [{ url: videoSlide.url, mediaType: 'video', duration: videoSlide.endTime - videoSlide.startTime }];
+                modifiedSlides[videoSlide.slideIndex].content[videoSlide.subslideIndex].audio = videoSlide.audio;
             })
             return articleHandler.updateById(article._id, { slides: modifiedSlides });
         })
