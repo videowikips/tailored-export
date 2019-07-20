@@ -2,16 +2,24 @@ function isItemInContent(start_time, end_time, item) {
     return item.start_time >= start_time && item.end_time <= end_time;
 }
 
-function parseTranscription(transcription) {
+function parseTranscription(transcription, noOfSpeakers) {
     const { results } = transcription;
     const { speaker_labels, items } = results;
-    const { segments } = speaker_labels;
     const slidesStartEndTime = [];
     const slidesContent = [];
-    segments.forEach((segment, index) => {
-        const { start_time, end_time, speaker_label } = segment;
-        slidesStartEndTime.push({ start_time: parseFloat(start_time), end_time: parseFloat(end_time), speaker_label });
-    });
+    if (noOfSpeakers > 1) {
+        const { segments } = speaker_labels;
+        segments.forEach((segment, index) => {
+            const { start_time, end_time, speaker_label } = segment;
+            slidesStartEndTime.push({ start_time: parseFloat(start_time), end_time: parseFloat(end_time), speaker_label });
+        });
+    } else {
+        slidesStartEndTime.push({
+            start_time: parseFloat(items.find((s) => s.start_time).start_time),
+            end_time: parseFloat(items.slice().reverse().find((s) => s.start_time).end_time),
+            speaker_label: 'spk_1',
+        })
+    }
     slidesStartEndTime.forEach(({ start_time, end_time, speaker_label }) => {
         let content = [];
         let slideItems = [];

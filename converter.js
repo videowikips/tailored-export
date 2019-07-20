@@ -1,8 +1,10 @@
 const fs = require('fs');
+const path = require('path');
 const { exec } = require('child_process');
 const uuid = require('uuid').v4;
 const transcribeParser = require('./transcribeParser');
 const utils = require('./utils');
+const ttsVendor = require('./vendors/textToSpeach');
 const async = require('async');
 
 function normalizeCommandText(text) {
@@ -79,14 +81,46 @@ function cutSlidesIntoVideos(slides, videoPath) {
     })
 }
 
-function breakVideoIntoSlides(videoPath, transcription) {
+function breakVideoIntoSlides(videoPath, transcription, numberOfSpeakers) {
     return new Promise((resolve, reject) => {
         utils.getRemoteFileDuration(videoPath)
             .then((videoDuration) => {
-                const slides = utils.formatTranscribedSlidesToCut(transcribeParser.parseTranscription(transcription), videoDuration);
+                const slides = utils.formatTranscribedSlidesToCut(transcribeParser.parseTranscription(transcription, numberOfSpeakers), videoDuration);
                 return resolve(slides);
             })
             .catch(reject)
+    })
+}
+
+function convertSlidesTextToSpeach(lang, gender, slidesArray) {
+    return new Promise((resolve, reject) => {
+        console.log('====================== generating tts ======================== ')
+        const slides = slidesArray.slice();
+        const convFuncArray = [];
+        slides.forEach((slide) => {
+            convFuncArray.push((cb) => {
+                const targetPath = path.join(__dirname, 'tmp', `tts_audio${uuid()}.mp3`);
+                if (slide.text && slide.text.trim()) {
+                    ttsVendor.convertTextToSpeech({ text: slide.text, lang, gender }, targetPath)
+                    .then(() => {
+                        slide.audio = targetPath;
+                        cb();    
+                    })
+                    .catch((err) => cb(err));
+                } else {
+                    extractAudioFromVideo(slide.video, targetPath)
+                    .then(() => {
+                        slide.audio = targetPath;
+                        cb();    
+                    })
+                    .catch((err) => cb(err))
+                }
+            })
+        })
+        async.parallelLimit(convFuncArray, 2, (err) => {
+            if (err) return reject(err);
+            return resolve(slides);
+        })
     })
 }
 
@@ -95,5 +129,6 @@ module.exports = {
     cutSlidesIntoVideos,
     breakVideoIntoSlides,
     extractAudioFromSlidesVideos,
+    convertSlidesTextToSpeach,
     extractAudioFromVideo,
 }

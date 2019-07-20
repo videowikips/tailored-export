@@ -36,11 +36,13 @@ function transcribe(audioUrl, langCode, noOfSpeakers) {
             MediaFormat: audioUrl.split('.').pop().toLowerCase(),
             TranscriptionJobName: jobName, /* required */
             OutputBucketName: transcribeBucketName,
-            Settings: {
+        };
+        if (noOfSpeakers > 1) {
+            params.Settings = {
                 MaxSpeakerLabels: noOfSpeakers,
                 ShowSpeakerLabels: true,
             }
-        };
+        }
         transcribeService.startTranscriptionJob(params, function (err, data) {
             if (err) return reject(err);
             return resolve({ jobName, data });
