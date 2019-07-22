@@ -190,21 +190,24 @@ function onConvertVideoToArticle(msg) {
             return converter.cutSlidesIntoVideos(article.slides.slice(), videoPath)
         })
         .then(slides => {
-            /*
-                1- if it's English video with 1 speaker, generate tts audio, if more than one speaker, don't generate TTS and leave original audio
-                2- if it's Hindi with one speaker and the speaker is female, generate tts audio, otherwise dont
-                3- other langs dont generate tts 
-            */
-           const { langCode, speakersProfile } = article;
-           if (langCode.toLowerCase().indexOf('en') === 0 && speakersProfile.length === 1) {
-            //    English with one speaker
-            return converter.convertSlidesTextToSpeach('en', speakersProfile[0].speakerGender, slides);
-           } else if (langCode.toLowerCase().indexOf('hi') === 0 && speakersProfile.length === 1 && speakersProfile[0].speakerGender === 'female') {
-            //    Hindi with one female speaker
-            return converter.convertSlidesTextToSpeach('hi', 'female', slides);
-           } else {
-               return converter.extractAudioFromSlidesVideos(slides);
-           }
+        // TODO: Uncomment this when implementing updateable feaetures
+        //     /*
+        //         1- if it's English video with 1 speaker, generate tts audio, if more than one speaker, don't generate TTS and leave original audio
+        //         2- if it's Hindi with one speaker and the speaker is female, generate tts audio, otherwise dont
+        //         3- other langs dont generate tts 
+        //     */
+        //    const { langCode, speakersProfile } = article;
+        //    if (langCode.toLowerCase().indexOf('en') === 0 && speakersProfile.length === 1) {
+        //     //    English with one speaker
+        //     return converter.convertSlidesTextToSpeach('en', speakersProfile[0].speakerGender, slides);
+        //    } else if (langCode.toLowerCase().indexOf('hi') === 0 && speakersProfile.length === 1 && speakersProfile[0].speakerGender === 'female') {
+        //     //    Hindi with one female speaker
+        //     return converter.convertSlidesTextToSpeach('hi', 'female', slides);
+        //    } else {
+        //        return converter.extractAudioFromSlidesVideos(slides);
+        //    }
+
+           return converter.extractAudioFromSlidesVideos(slides);
         })
         .then((slides) => {
             return new Promise((resolve, reject) => {
