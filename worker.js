@@ -243,11 +243,18 @@ function onConvertVideoToArticle(msg) {
             })
         })
         .then((videoSlides) => {
+            // Update slides with videos
             console.log('updating slides with video')
             const modifiedSlides = article.slides.slice();
             videoSlides.forEach((videoSlide) => {
                 modifiedSlides[videoSlide.slideIndex].content[videoSlide.subslideIndex].media = [{ url: videoSlide.url, mediaType: 'video', duration: videoSlide.endTime - videoSlide.startTime }];
                 modifiedSlides[videoSlide.slideIndex].content[videoSlide.subslideIndex].audio = videoSlide.audio;
+            })
+            // set position on subslides
+            modifiedSlides.forEach((slide) => {
+                slide.content.forEach((subslide, index) => {
+                    subslide.position = index;
+                })
             })
             return articleHandler.updateById(article._id, { slides: modifiedSlides });
         })
