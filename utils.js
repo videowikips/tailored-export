@@ -346,7 +346,7 @@ function formatCutTime(seconds) {
     if (minutes < 10) { minutes = "0" + minutes; }
     if (seconds < 10) { seconds = "0" + seconds; }
     let time = hours + ':' + minutes + ':' + seconds;
-    if (parseFloat(seconds) === seconds || parseFloat(seconds) === 0) {
+    if ((parseFloat(seconds) === seconds || parseFloat(seconds) === 0) && String(seconds).indexOf('.') === -1) {
         time += '.000';
     }
     if (time.length < 12) {
