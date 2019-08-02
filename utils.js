@@ -339,25 +339,22 @@ function getRemoteFileDuration(url) {
 }
 
 function formatCutTime(seconds) {
-    let date = new Date(null);
-    date.setSeconds(seconds); // specify value for SECONDS here
-    return date.toISOString().substr(11, 12);
-    // let hours = Math.floor(seconds / 3600);
-    // let minutes = Math.floor((seconds - (hours * 3600)) / 60);
-    // seconds = seconds - (hours * 3600) - (minutes * 60);
-    // if (hours < 10) { hours = "0" + hours; }
-    // if (minutes < 10) { minutes = "0" + minutes; }
-    // if (seconds < 10) { seconds = "0" + seconds; }
-    // let time = hours + ':' + minutes + ':' + seconds;
-    // if (parseInt(seconds) === seconds || parseInt(seconds) === 0) {
-    //     time += '.000';
-    // }
-    // if (time.length < 12) {
-    //     for (let i = 0; i < Array(12 - time.length).length; i++) {
-    //         time += '0';
-    //     }
-    // }
-    // return time.substr(0, 12);
+    let hours = Math.floor(seconds / 3600);
+    let minutes = Math.floor((seconds - (hours * 3600)) / 60);
+    seconds = seconds - (hours * 3600) - (minutes * 60);
+    if (hours < 10) { hours = "0" + hours; }
+    if (minutes < 10) { minutes = "0" + minutes; }
+    if (seconds < 10) { seconds = "0" + seconds; }
+    let time = hours + ':' + minutes + ':' + seconds;
+    if (parseFloat(seconds) === seconds || parseFloat(seconds) === 0) {
+        time += '.000';
+    }
+    if (time.length < 12) {
+        for (let i = 0; i < Array(12 - time.length).length; i++) {
+            time += '0';
+        }
+    }
+    return time.substr(0, 12);
 }
 
 function getFileExtension(url) {
