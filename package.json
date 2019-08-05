@@ -5,8 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:dev": "node index.js",
-    "start": "pm2 start worker.js --name=tvw_exporter -i 2 && pm2 start cronJobs.js --name=tvw_exporter_crons",
-    "stop": "pm2 stop tvw_exporter && pm2 delete tvw_exporter && pm2 stop tvw_exporter_crons && pm2 delete tvw_exporter_crons",
+    "start": "pm2 start worker.js --name=tvw_transcriber -i 2 && pm2 start cronJobs.js --name=tvw_transcriber_crons",
+    "stop": "pm2 stop tvw_transcriber && pm2 delete tvw_transcriber && pm2 stop tvw_transcriber_crons && pm2 delete tvw_transcriber_crons",
     "restart": "npm stop && npm start"
   },
   "author": "Hassan Amin",

@@ -361,6 +361,33 @@ function getFileExtension(url) {
     return url.split('.').pop().toLowerCase();
 }
 
+function cleanupFiles(files) {
+    files.forEach((file) => {
+        fs.unlink(file, () => { });
+    })
+}
+
+function breakVideoIntoSlides(videoPath, parsedTranscription) {
+    return new Promise((resolve, reject) => {
+        getRemoteFileDuration(videoPath)
+            .then((videoDuration) => {
+                const slides = formatTranscribedSlidesToCut(parsedTranscription, videoDuration);
+                return resolve(slides);
+            })
+            .catch(reject)
+    })
+}
+
+function extractAudioFromVideo(videoPath, targetPath) {
+    return new Promise((resolve, reject) => {
+        const command = `ffmpeg -y -i ${videoPath} -map 0:a:0 ${targetPath}`;
+        exec(command, (err) => {
+            if (err) return reject(err);
+            if (!fs.existsSync(targetPath)) return reject(new Error('Something went wrong'));
+            return resolve(targetPath);
+        })
+    })
+}
 module.exports = {
     formatCutTime,
     getRemoteFileDuration,
@@ -369,4 +396,7 @@ module.exports = {
     getFileExtension,
     getSpeakersFromSlides,
     formatSlidesToSlideSpeakerSchema,
+    cleanupFiles,
+    breakVideoIntoSlides,
+    extractAudioFromVideo,
 }
