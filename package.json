@@ -15,7 +15,7 @@
     "@google-cloud/text-to-speech": "^1.1.2",
     "amqplib": "^0.5.3",
     "async": "^3.1.0",
-    "aws-sdk": "^2.480.0",
+    "aws-sdk": "^2.814.0",
     "cron": "^1.7.1",
     "dotenv": "^8.0.0",
     "moment": "^2.24.0",
